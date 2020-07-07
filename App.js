@@ -37,7 +37,8 @@ Ext.define('Nik.Apps.SprintChangeChart', {
     margin: ({top: 20, right: 0, bottom: 80, left: 20}),
     config: {
         defaultSettings: {
-            artefact: 'HierarchicalRequirement'
+            artefact: 'HierarchicalRequirement',
+            usePlanEstimate: true
         }
     },
     items: [
@@ -114,7 +115,11 @@ Ext.define('Nik.Apps.SprintChangeChart', {
                     }
                 },
             },            
-            
+            {
+                name: 'usePlanEstimate',
+                xtype: 'rallycheckboxfield',
+                fieldLabel: 'Use PlanEstimate'
+            }
         ];
     },
     _setXAxis: function(g) {
@@ -158,7 +163,6 @@ Ext.define('Nik.Apps.SprintChangeChart', {
 
         var cp = series.append('clipPath')
             .attr('id', function(d) {
-                console.log( d);
                 return 'clipPath-'+d.data;
             });
         
@@ -223,6 +227,7 @@ Ext.define('Nik.Apps.SprintChangeChart', {
                         })<0)?current:undefined;
                     });
                     xz.push([same, added, removed]);
+                    console.log([same, added, removed]);
                     currentState = Ext.clone(snapshotData.snapshots);
 
                 });
@@ -244,8 +249,8 @@ Ext.define('Nik.Apps.SprintChangeChart', {
             "_TypeHierarchy":{"$in":[gApp.artefactType]}
         };
 
-        var fields = ["_TypeHierarchy","ObjectID","FormattedID","_ValidFrom","_PreviousValues.ScheduleState", 'ScheduleState',"Name"];
-        var hydrate = [ "_PreviousValues.ScheduleState", 'ScheduleState' /**, "_TypeHierarchy"**/];
+        var fields = ["_TypeHierarchy","ObjectID","FormattedID","_ValidFrom","PlanEstimate", 'ScheduleState',"Name"];
+        var hydrate = [ 'ScheduleState' /**, "_TypeHierarchy"**/];
 
         var config = {
             find : find,
@@ -254,10 +259,10 @@ Ext.define('Nik.Apps.SprintChangeChart', {
             autoLoad : true,
             limit: Infinity,
             compress: true,
+            removeUnauthorizedSnapshots: true,
             listeners: {
                 load: function(store, data, success) {
                     if (success) {
-                        console.log(interval,data);
                         deferred.resolve(data);
                     }
                     else {
@@ -285,7 +290,15 @@ Ext.define('Nik.Apps.SprintChangeChart', {
         y01z = d3.stack()
             .keys(d3.range(n))
             .value( (d,key) => {
-                return d[key].length;
+                if (true === gApp.getSetting('usePlanEstimate')) {
+                    var total = 0;
+                     _.forEach(d[key], function(item) {
+                        total += item.get('PlanEstimate');
+                    });
+                    return total;
+                } else {
+                    return d[key].length;
+                }
             })
             (yz) // stacked yz
             .map( function(data, i) {
@@ -355,7 +368,7 @@ Ext.define('Nik.Apps.SprintChangeChart', {
             .attr('y', gApp.margin.top - 5)
             .attr('class', 'normalText')
             .style('text-anchor', 'end')
-            .text( gApp.artefactType+": "+gApp.fieldName);
+            .text( gApp.artefactType+": "+gApp.fieldName+(gApp.getSetting('usePlanEstimate')?' (Points)':' (Count)'));
  
         function transitionGrouped() {
             y.domain([0, yMax]);          
@@ -518,7 +531,7 @@ Ext.define('Nik.Apps.SprintChangeChart', {
 
         });
 
-        this._getSnapShots();
+        //this._getSnapShots();
 
     },
 
